@@ -6,10 +6,10 @@ An implementation of [Lox](https://craftinginterpreters.com/the-lox-language.htm
 
 Clone the repo and install dependencies:
 
-```
+```sh
 git clone https://github.com/elimerl/lox
 cd lox
-yarn install
+yarn install # npm also works
 ```
 
 Then run `src/cli.ts` to be dropped into a REPL.
