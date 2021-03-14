@@ -2,14 +2,16 @@ import type { Token } from "moo";
 import {
   Assign,
   Binary,
+  Call,
   Expr,
   Grouping,
   Literal,
+  Logical,
   LoxType,
   Variable,
 } from "./Expr";
 import { lexerDef, tokens } from "./Lexer";
-import { Block, Expression, Print, Stmt, Var } from "./Stmt";
+import { Block, Expression, If, Print, Stmt, Var, While } from "./Stmt";
 
 type TokenType = keyof typeof lexerDef;
 export class Parser {
@@ -104,6 +106,31 @@ export class Parser {
 
     return expr;
   }
+  private call() {
+    let expr: Expr = this.primary();
+
+    while (true) {
+      if (this.match("lparen")) {
+        expr = this.finishCall(expr);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
+  }
+  finishCall(callee: Expr) {
+    const args: Expr[] = [];
+    if (!this.check("rparen")) {
+      do {
+        args.push(this.expression());
+      } while (this.match("comma"));
+    }
+
+    const paren = this.consume("rparen", "Expect ')' after arguments.");
+
+    return new Call(callee, paren, args);
+  }
 
   private primary() {
     if (this.matchValue("false")) return new Literal(false);
@@ -180,8 +207,63 @@ export class Parser {
   statement() {
     if (this.matchValue("print")) return this.printStatement();
     if (this.matchValue("{")) return new Block(this.block());
+    if (this.matchValue("if")) return this.ifStatement();
+    if (this.matchValue("while")) return this.whileStatement();
+    if (this.matchValue("for")) return this.forStatement();
 
     return this.expressionStatement();
+  }
+  forStatement() {
+    this.consume("lparen", "Expect '(' after 'for'.");
+    let initializer: Stmt;
+    if (this.match("semi")) {
+      initializer = null;
+    } else if (this.matchValue("var")) {
+      initializer = this.varDeclaration();
+    } else {
+      initializer = this.expressionStatement();
+    }
+    let condition = null;
+    if (!this.check("semi")) {
+      condition = this.expression();
+    }
+    this.consume("semi", "Expect ';' after loop condition.");
+    let increment: Expr = null;
+    if (!this.check("rparen")) {
+      increment = this.expression();
+    }
+    this.consume("rparen", "Expect ')' after for clauses.");
+    let body = this.statement();
+    if (increment) {
+      body = new Block([body, new Expression(increment)]);
+    }
+    if (condition == null) condition = new Literal(true);
+    body = new While(condition, body);
+    if (initializer) {
+      body = new Block([initializer, body]);
+    }
+
+    return body;
+  }
+  whileStatement() {
+    this.consume("lparen", "Expect '(' after 'while'.");
+    const condition = this.expression();
+    this.consume("rparen", "Expect ')' after condition.");
+    const body = this.statement();
+
+    return new While(condition, body);
+  }
+  ifStatement() {
+    this.consume("lparen", "Expect '(' after 'if'.");
+    const condition = this.expression();
+    this.consume("rparen", "Expect ')' after if condition.");
+    const thenBranch = this.statement();
+    let elseBranch = null;
+    if (this.matchValue("else")) {
+      elseBranch = this.statement();
+    }
+
+    return new If(condition, thenBranch, elseBranch);
   }
   printStatement() {
     const value = this.expression();
@@ -227,7 +309,7 @@ export class Parser {
     }
   }
   assignment() {
-    const expr = this.equality();
+    const expr = this.or();
 
     if (this.matchValue("=")) {
       const equals = this.previous();
@@ -239,6 +321,27 @@ export class Parser {
       }
 
       this.error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
+  or() {
+    let expr = this.and();
+
+    while (this.matchValue("or")) {
+      const operator = this.previous();
+      const right = this.and();
+      expr = new Logical(expr, operator, right);
+    }
+
+    return expr;
+  }
+  and() {
+    let expr = this.equality();
+    while (this.matchValue("and")) {
+      const operator = this.previous();
+      const right = this.equality();
+      expr = new Logical(expr, operator, right);
     }
 
     return expr;

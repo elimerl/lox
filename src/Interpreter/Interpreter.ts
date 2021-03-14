@@ -5,6 +5,7 @@ import {
   ExprVisitor,
   Grouping,
   Literal,
+  Logical,
   LoxType,
   Variable,
 } from "../Parser/Expr";
@@ -15,6 +16,8 @@ import {
   Stmt,
   Var,
   Block,
+  If,
+  While,
 } from "../Parser/Stmt";
 import { pretty, stringify } from "../Util/util";
 import { Environment } from "./Environment";
@@ -121,6 +124,12 @@ export class Interpreter implements ExprVisitor<LoxType>, StmtVisitor<LoxType> {
     this.environment.define(stmt.name.value, value);
     return null;
   }
+  visitWhileStmt(stmt: While) {
+    while (this.isTruthy(this.evaluate(stmt.condition))) {
+      this.execute(stmt.body);
+    }
+    return null;
+  }
   visitVariableExpr(expr: Variable) {
     return this.environment.get(expr.name.text);
   }
@@ -144,5 +153,24 @@ export class Interpreter implements ExprVisitor<LoxType>, StmtVisitor<LoxType> {
     } finally {
       this.environment = previous;
     }
+  }
+  visitIfStmt(stmt: If) {
+    if (this.isTruthy(this.evaluate(stmt.condition))) {
+      this.execute(stmt.thenBranch);
+    } else if (stmt.elseBranch != null) {
+      this.execute(stmt.elseBranch);
+    }
+    return null;
+  }
+  visitLogicalExpr(expr: Logical) {
+    const left = this.evaluate(expr.left);
+
+    if (expr.operator.value === "or") {
+      if (this.isTruthy(left)) return left;
+    } else {
+      if (!this.isTruthy(left)) return left;
+    }
+
+    return this.evaluate(expr.right);
   }
 }

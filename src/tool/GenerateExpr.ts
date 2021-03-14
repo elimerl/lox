@@ -16,15 +16,19 @@ class GenerateAst {
     this.defineAst(outputDir, "Expr", [
       "Assign   : Token name, Expr value",
       "Binary   : Expr left, Token operator, Expr right",
+      "Call     : Expr callee, Token paren, Expr[] arguments",
       "Grouping : Expr expression",
       "Literal  : LoxType value",
+      "Logical  : Expr left, Token operator, Expr right",
       "Variable : Token name",
     ]);
     this.defineAst(outputDir, "Stmt", [
-      "Block      : List<Stmt> statements",
+      "Block      : Stmt[] statements",
       "Expression : Expr expression",
+      "If         : Expr condition, Stmt thenBranch," + " Stmt elseBranch",
       "Print      : Expr expression",
       "Var        : Token name, Expr initializer",
+      "While      : Expr condition, Stmt body",
     ]);
   }
   static defineAst(outputDir: string, baseName: string, types: string[]) {
