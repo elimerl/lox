@@ -1,16 +1,29 @@
 import {
+  Assign,
   Binary,
   Expr,
   ExprVisitor,
   Grouping,
   Literal,
   LoxType,
+  Variable,
 } from "../Parser/Expr";
-import { tokens } from "../Parser/Lexer";
-import { Parser } from "../Parser/Parser";
-import { StmtVisitor, Expression, Print, Stmt } from "../Parser/Stmt";
-
+import {
+  StmtVisitor,
+  Expression,
+  Print,
+  Stmt,
+  Var,
+  Block,
+} from "../Parser/Stmt";
+import { pretty, stringify } from "../Util/util";
+import { Environment } from "./Environment";
+export interface IInterpreterOptions {
+  pretty: boolean;
+}
 export class Interpreter implements ExprVisitor<LoxType>, StmtVisitor<LoxType> {
+  environment: Environment = new Environment();
+  constructor(readonly options: IInterpreterOptions = { pretty: false }) {}
   visitLiteralExpr(expr: Literal) {
     return expr.value;
   }
@@ -52,7 +65,6 @@ export class Interpreter implements ExprVisitor<LoxType>, StmtVisitor<LoxType> {
         if (typeof left === "string" && typeof right === "string") {
           return left + right;
         }
-
         break;
       case "!=":
         return this.equals(left, right);
@@ -78,24 +90,59 @@ export class Interpreter implements ExprVisitor<LoxType>, StmtVisitor<LoxType> {
     if (a === null) return false;
   }
   interpret(statements: Stmt[]) {
+    let returnValue = null;
     for (const statement of statements) {
-      this.execute(statement);
+      returnValue = this.execute(statement);
     }
+    return returnValue;
   }
-  static interpret(statements: Stmt[]) {
-    new Interpreter().interpret(statements);
+  static interpret(statements: Stmt[], options?: IInterpreterOptions) {
+    return new Interpreter(options).interpret(statements);
   }
   private execute(stmt: Stmt) {
-    stmt.accept(this);
+    return stmt.accept(this);
   }
 
   visitExpressionStmt(stmt: Expression) {
-    this.evaluate(stmt.expression);
-    return null;
+    const value = this.evaluate(stmt.expression);
+    return value;
   }
   visitPrintStmt(stmt: Print) {
     const value = this.evaluate(stmt.expression);
-    console.log(value);
+    console.log(this.options.pretty ? pretty(value) : stringify(value));
     return null;
+  }
+  visitVarStmt(stmt: Var) {
+    let value = null;
+    if (stmt.initializer != null) {
+      value = this.evaluate(stmt.initializer);
+    }
+
+    this.environment.define(stmt.name.value, value);
+    return null;
+  }
+  visitVariableExpr(expr: Variable) {
+    return this.environment.get(expr.name.text);
+  }
+  visitAssignExpr(expr: Assign) {
+    const value = this.evaluate(expr.value);
+    this.environment.assign(expr.name.value, value);
+    return value;
+  }
+  visitBlockStmt(stmt: Block) {
+    this.executeBlock(stmt.statements, new Environment(this.environment));
+    return null;
+  }
+  executeBlock(statements: Stmt[], environment: Environment) {
+    const previous = this.environment;
+    try {
+      this.environment = environment;
+
+      for (const statement of statements) {
+        this.execute(statement);
+      }
+    } finally {
+      this.environment = previous;
+    }
   }
 }

@@ -37,6 +37,7 @@ export const lexerDef = {
     "and",
     "or",
     "=",
+    "var",
   ],
   semi: ";",
   comma: ",",
@@ -47,11 +48,18 @@ const lexer = moo.compile(lexerDef);
 export function tokens(str: string) {
   lexer.reset(str);
   const tokens: moo.Token[] = [...lexer];
-  if (tokens[tokens.length - 1].type === "error") {
+  if (tokens[tokens.length - 1] && tokens[tokens.length - 1].type === "error") {
     const errToken = tokens[tokens.length - 1];
     console.log(`error on line ${errToken.line} col ${errToken.col}:
 ${errToken.text}`);
-    process.exit(1);
+    return 1;
   }
-  return tokens.filter((v) => v.type !== "WS");
+  return tokens.filter(
+    (v) => v.type !== "WS" && v.type !== "comment" && v.type !== "NL"
+  );
+}
+export function tokensErrorHandled(str: string): moo.Token[] {
+  const _tokens = tokens(str);
+  if (_tokens === 1) process.exit(1);
+  else return _tokens;
 }

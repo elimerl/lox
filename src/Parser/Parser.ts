@@ -1,7 +1,15 @@
 import type { Token } from "moo";
-import { Binary, Expr, Grouping, Literal, LoxType } from "./Expr";
+import {
+  Assign,
+  Binary,
+  Expr,
+  Grouping,
+  Literal,
+  LoxType,
+  Variable,
+} from "./Expr";
 import { lexerDef, tokens } from "./Lexer";
-import { Expression, Print, Stmt } from "./Stmt";
+import { Block, Expression, Print, Stmt, Var } from "./Stmt";
 
 type TokenType = keyof typeof lexerDef;
 export class Parser {
@@ -52,7 +60,7 @@ export class Parser {
     return this.peek().value == value;
   }
   expression() {
-    return this.equality();
+    return this.assignment();
   }
   equality() {
     let expr = this.comparison();
@@ -108,10 +116,12 @@ export class Parser {
 
     if (this.match("lparen")) {
       const expr = this.expression();
-      this.consume(")", "Expect ')' after expression.");
+      this.consumeValue(")", "Expect ')' after expression.");
       return new Grouping(expr);
     }
+    if (this.match("identifier")) return new Variable(this.previous());
     this.error(this.peek(), "Expect expression.");
+    process.exit();
   }
   private parseRaw(v: string) {
     if (v.match(/^\d/)) {
@@ -120,9 +130,13 @@ export class Parser {
       return v.slice(1, -1);
     }
   }
-  consume(type: TokenType | string, message: string) {
-    if (tokens[type] ? this.check(type as TokenType) : this.checkValue(type))
-      return this.advance();
+  consume(type: TokenType, message: string) {
+    if (this.check(type)) return this.advance();
+
+    this.error(this.peek(), message);
+  }
+  consumeValue(value: string, message: string) {
+    if (this.checkValue(value)) return this.advance();
 
     this.error(this.peek(), message);
   }
@@ -133,29 +147,101 @@ export class Parser {
       console.log(message);
       //   console.log("line " + token.line, "at '" + token.value + "':", message);
     }
-    process.exit(1);
   }
   parse() {
     const statements: Stmt[] = [];
     while (!(this.current >= this.tokens.length)) {
-      statements.push(this.statement());
+      statements.push(this.declaration());
     }
     return statements;
   }
+  declaration() {
+    try {
+      if (this.matchValue("var")) return this.varDeclaration();
+
+      return this.statement();
+    } catch (error) {
+      this.synchronize();
+      return null;
+    }
+  }
+  varDeclaration() {
+    const name = this.consume("identifier", "Expect variable name.");
+
+    let initializer = null;
+    if (this.matchValue("=")) {
+      initializer = this.expression();
+    }
+
+    if (this.peek() && this.peek().value === ";") this.advance();
+    return new Var(name, initializer);
+  }
+
   statement() {
     if (this.matchValue("print")) return this.printStatement();
+    if (this.matchValue("{")) return new Block(this.block());
 
     return this.expressionStatement();
   }
   printStatement() {
     const value = this.expression();
-    this.consume(";", "Expect ';' after value.");
+    if (this.peek() && this.peek().value === ";") this.advance();
     return new Print(value);
   }
   expressionStatement() {
     const expr = this.expression();
-    console.log(expr);
-    this.consume(";", "Expect ';' after expression.");
+    // this.consume(";", "Expect ';' after expression.");
+    if (this.peek() && this.peek().value === ";") this.advance();
     return new Expression(expr);
   }
+  block() {
+    const statements: Stmt[] = [];
+
+    while (!this.checkValue("}") && !(this.current >= this.tokens.length)) {
+      statements.push(this.declaration());
+    }
+
+    this.consumeValue("}", "Expect '}' after block.");
+    return statements;
+  }
+
+  private synchronize() {
+    this.advance();
+
+    while (!(this.current >= this.tokens.length)) {
+      if (this.previous().type == "semi") return;
+
+      switch (this.peek().value) {
+        case "class":
+        case "fun":
+        case "var":
+        case "for":
+        case "if":
+        case "while":
+        case "print":
+        case "return":
+          return;
+      }
+
+      this.advance();
+    }
+  }
+  assignment() {
+    const expr = this.equality();
+
+    if (this.matchValue("=")) {
+      const equals = this.previous();
+      const value = this.assignment();
+
+      if (expr instanceof Variable) {
+        const name = expr.name;
+        return new Assign(name, value);
+      }
+
+      this.error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
 }
+class ParseError extends Error {}
