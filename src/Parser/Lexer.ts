@@ -1,14 +1,26 @@
 import * as moo from "moo";
-const lexer = moo.compile({
+export const lexerDef = {
   WS: /[ \t]+/,
   comment: /\/\/.*?$/,
-  number: /\d+(?:\\.\d+)?/,
+  number: /\-?\d*\.?\d+/,
   string: /"(?:\\["\\]|[^\n"\\])*"/,
   lparen: "(",
   rparen: ")",
   lbrack: "{",
   rbrack: "}",
-  keyword: ["true", "false", "var", "if", "else", "while", "for", "fun"],
+  keyword: [
+    "true",
+    "false",
+    "var",
+    "if",
+    "else",
+    "while",
+    "for",
+    "fun",
+    "nil",
+    "return",
+    "class",
+  ],
   NL: { match: /\n/, lineBreaks: true },
   operator: [
     "+",
@@ -25,14 +37,13 @@ const lexer = moo.compile({
     "and",
     "or",
     "=",
-    "return",
-    "class",
   ],
   semi: ";",
   comma: ",",
   identifier: /\w+/,
   error: moo.error,
-});
+};
+const lexer = moo.compile(lexerDef);
 export function tokens(str: string) {
   lexer.reset(str);
   const tokens: moo.Token[] = [...lexer];
@@ -42,18 +53,5 @@ export function tokens(str: string) {
 ${errToken.text}`);
     process.exit(1);
   }
-  return tokens;
+  return tokens.filter((v) => v.type !== "WS");
 }
-
-console.log(
-  tokens(`class Breakfast {
-	cook() {
-	  print "Eggs a-fryin'!";
-	}
-  
-	serve(who) {
-	  print "Enjoy your breakfast, " + who + ".";
-	}
-  }
-  `)
-);

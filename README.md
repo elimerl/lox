@@ -11,5 +11,6 @@ Clone the repo and run src/cli.ts (not done yet).
 To run the test suite, clone [this repository](https://github.com/munificent/craftinginterpreters), and run this:
 
 ```sh
+$ (cd tool && dart pub get)
 $ dart tool/bin/test.dart jlox --interpreter ts-node --arguments src/cli.ts # wherever that is
 ```
