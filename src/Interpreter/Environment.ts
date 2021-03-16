@@ -1,4 +1,4 @@
-import { LoxType } from "../Parser/Expr";
+import { LoxType } from "./Interpreter";
 
 export class Environment {
   values = new Map<string, LoxType>();
@@ -13,6 +13,17 @@ export class Environment {
     if (this.enclosing) return this.enclosing.get(name);
 
     throw new Error("Undefined variable '" + name + "'.");
+  }
+  getAt(distance: number, name: string) {
+    return this.ancestor(distance).values.get(name);
+  }
+  ancestor(distance: number) {
+    let environment: Environment = this;
+    for (let i = 0; i < distance; i++) {
+      environment = environment.enclosing;
+    }
+
+    return environment;
   }
   assign(name: string, value: LoxType) {
     if (this.values.has(name)) {

@@ -23,7 +23,7 @@ if (process.argv[2]) {
       try {
         cb(null, interpreter.interpret(new Parser(tokens as Token[]).parse()));
       } catch (error) {
-        cb(null, null);
+        cb(new Error(""), null);
       }
     },
     writer: pretty,

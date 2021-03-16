@@ -1,5 +1,5 @@
-import type { Token } from "moo";
-export type LoxType = null | number | string | boolean;
+import type { Token } from "../Util/Token";
+import type { LoxType } from "../Interpreter/Interpreter";
 export abstract class Expr {
   abstract accept<R>(visitor: ExprVisitor<R>): R;
 }
@@ -27,12 +27,20 @@ export class Call extends Expr {
   constructor(
     readonly callee: Expr,
     readonly paren: Token,
-    readonly arguments: Expr[]
+    readonly args: Expr[]
   ) {
     super();
   }
   accept<R>(visitor: ExprVisitor<R>): R {
     return visitor.visitCallExpr(this);
+  }
+}
+export class Get extends Expr {
+  constructor(readonly object: Expr, readonly name: Token) {
+    super();
+  }
+  accept<R>(visitor: ExprVisitor<R>): R {
+    return visitor.visitGetExpr(this);
   }
 }
 export class Grouping extends Expr {
@@ -49,6 +57,14 @@ export class Literal extends Expr {
   }
   accept<R>(visitor: ExprVisitor<R>): R {
     return visitor.visitLiteralExpr(this);
+  }
+}
+export class Unary extends Expr {
+  constructor(readonly operator: Token, readonly right: Expr) {
+    super();
+  }
+  accept<R>(visitor: ExprVisitor<R>): R {
+    return visitor.visitUnaryExpr(this);
   }
 }
 export class Logical extends Expr {
@@ -75,8 +91,10 @@ export interface ExprVisitor<R> {
   visitAssignExpr(expr: Assign): R;
   visitBinaryExpr(expr: Binary): R;
   visitCallExpr(expr: Call): R;
+  visitGetExpr(expr: Get): R;
   visitGroupingExpr(expr: Grouping): R;
   visitLiteralExpr(expr: Literal): R;
+  visitUnaryExpr(expr: Unary): R;
   visitLogicalExpr(expr: Logical): R;
   visitVariableExpr(expr: Variable): R;
 }

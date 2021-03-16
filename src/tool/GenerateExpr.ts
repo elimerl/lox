@@ -16,17 +16,22 @@ class GenerateAst {
     this.defineAst(outputDir, "Expr", [
       "Assign   : Token name, Expr value",
       "Binary   : Expr left, Token operator, Expr right",
-      "Call     : Expr callee, Token paren, Expr[] arguments",
+      "Call     : Expr callee, Token paren, Expr[] args",
+      "Get      : Expr object, Token name",
       "Grouping : Expr expression",
       "Literal  : LoxType value",
+      "Unary    : Token operator, Expr right",
       "Logical  : Expr left, Token operator, Expr right",
       "Variable : Token name",
     ]);
     this.defineAst(outputDir, "Stmt", [
       "Block      : Stmt[] statements",
+      "Class      : Token name, Function[] methods",
       "Expression : Expr expression",
+      "Function   : Token name, Token[] params," + " Stmt[] body",
       "If         : Expr condition, Stmt thenBranch," + " Stmt elseBranch",
       "Print      : Expr expression",
+      "Return     : Token keyword, Expr value",
       "Var        : Token name, Expr initializer",
       "While      : Expr condition, Stmt body",
     ]);
@@ -35,14 +40,13 @@ class GenerateAst {
     const path = outputDir + "/" + baseName + ".ts";
     str = "";
     prtStr(
-      `import type {Token} from 'moo';${
+      `import type {Token} from '../Util/Token';import type {LoxType} from '../Interpreter/Interpreter';${
         baseName !== "Expr" ? "import {Expr} from './Expr'" : ""
-      };export type LoxType = null | number | string|boolean;    `
+      };    `
     );
     prtStr("export abstract class " + baseName + " {");
 
     prtStr("  abstract accept<R>(visitor:" + baseName + "Visitor<R>):R;");
-
     prtStr("}");
     for (const type of types) {
       const className = type.split(":")[0].trim();

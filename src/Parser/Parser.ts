@@ -4,14 +4,26 @@ import {
   Binary,
   Call,
   Expr,
+  Get,
   Grouping,
   Literal,
   Logical,
-  LoxType,
+  Unary,
   Variable,
 } from "./Expr";
 import { lexerDef, tokens } from "./Lexer";
-import { Block, Expression, If, Print, Stmt, Var, While } from "./Stmt";
+import {
+  Block,
+  Class,
+  Expression,
+  Function,
+  If,
+  Print,
+  Return,
+  Stmt,
+  Var,
+  While,
+} from "./Stmt";
 
 type TokenType = keyof typeof lexerDef;
 export class Parser {
@@ -96,11 +108,11 @@ export class Parser {
     return expr;
   }
   private factor() {
-    let expr: Expr = this.primary();
+    let expr: Expr = this.unary();
 
     while (this.matchValue("/", "*")) {
       const operator = this.previous();
-      const right = this.primary();
+      const right = this.unary();
       expr = new Binary(expr, operator, right);
     }
 
@@ -108,10 +120,15 @@ export class Parser {
   }
   private call() {
     let expr: Expr = this.primary();
-
     while (true) {
       if (this.match("lparen")) {
         expr = this.finishCall(expr);
+      } else if (this.match("dot")) {
+        const name = this.consume(
+          "identifier",
+          "Expect property name after '.'."
+        );
+        expr = new Get(expr, name);
       } else {
         break;
       }
@@ -123,6 +140,10 @@ export class Parser {
     const args: Expr[] = [];
     if (!this.check("rparen")) {
       do {
+        if (args.length >= 255) {
+          this.error(this.peek(), "Can't have more than 255 arguments.");
+        }
+
         args.push(this.expression());
       } while (this.match("comma"));
     }
@@ -157,6 +178,16 @@ export class Parser {
       return v.slice(1, -1);
     }
   }
+  unary() {
+    if (this.matchValue("!", "-")) {
+      const operator = this.previous();
+      const right = this.unary();
+      return new Unary(operator, right);
+    }
+
+    return this.call();
+  }
+
   consume(type: TokenType, message: string) {
     if (this.check(type)) return this.advance();
 
@@ -184,13 +215,45 @@ export class Parser {
   }
   declaration() {
     try {
+      if (this.matchValue("fun")) return this.function("function");
       if (this.matchValue("var")) return this.varDeclaration();
-
+      if (this.matchValue("class")) return this.classDeclaration();
       return this.statement();
     } catch (error) {
       this.synchronize();
       return null;
     }
+  }
+  classDeclaration() {
+    const name = this.consume("identifier", "Expect class name.");
+    this.consume("lbrack", "Expect '{' before class body.");
+
+    const methods: Function[] = [];
+    while (!this.check("rbrack") && !(this.current >= this.tokens.length)) {
+      methods.push(this.function("method"));
+    }
+
+    this.consume("rbrack", "Expect '}' after class body.");
+
+    return new Class(name, methods);
+  }
+  function(kind: string) {
+    const name = this.consume("identifier", "Expect " + kind + " name.");
+    this.consume("lparen", "Expect '(' after " + kind + " name.");
+    const parameters: Token[] = [];
+    if (!this.check("rparen")) {
+      do {
+        if (parameters.length >= 255) {
+          this.error(this.peek(), "Can't have more than 255 parameters.");
+        }
+
+        parameters.push(this.consume("identifier", "Expect parameter name."));
+      } while (this.match("comma"));
+    }
+    this.consume("rparen", "Expect ')' after parameters.");
+    this.consume("lbrack", "Expect '{' before " + kind + " body.");
+    const body = this.block();
+    return new Function(name, parameters, body);
   }
   varDeclaration() {
     const name = this.consume("identifier", "Expect variable name.");
@@ -210,8 +273,19 @@ export class Parser {
     if (this.matchValue("if")) return this.ifStatement();
     if (this.matchValue("while")) return this.whileStatement();
     if (this.matchValue("for")) return this.forStatement();
+    if (this.matchValue("return")) return this.returnStatement();
 
     return this.expressionStatement();
+  }
+  returnStatement() {
+    const keyword = this.previous();
+    let value = null;
+    if (!this.check("semi")) {
+      value = this.expression();
+    }
+
+    this.consume("semi", "Expect ';' after return value.");
+    return new Return(keyword, value);
   }
   forStatement() {
     this.consume("lparen", "Expect '(' after 'for'.");

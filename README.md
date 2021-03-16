@@ -23,4 +23,6 @@ $ (cd tool && dart pub get)
 $ dart ./tool/bin/test.dart chap08_statements  --interpreter "node" --arguments '../lox/lib/test'
 ```
 
-For some reason you have to be in the craftinginterpreters directory.
+## Future stuff
+
+- Add a bytecode implementation. WASM would be neat too, and have good performance.

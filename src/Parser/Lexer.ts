@@ -2,7 +2,7 @@ import * as moo from "moo";
 export const lexerDef = {
   WS: /[ \t]+/,
   comment: /\/\/.*?$/,
-  number: /\-?\d*\.?\d+/,
+  number: /\d*\.?\d+/,
   string: /"(?:\\["\\]|[^\n"\\])*"/,
   lparen: "(",
   rparen: ")",
@@ -41,6 +41,7 @@ export const lexerDef = {
   ],
   semi: ";",
   comma: ",",
+  dot: ".",
   identifier: /\w+/,
   error: moo.error,
 };
